@@ -1,0 +1,16 @@
+CODEBASE SETUP
+
+/backend
+1. npm init -y
+2. npm i express@5.1.0 mongoose@8.16.0 dotenv@16.5.0 cors@2.8.5
+3. npm i @clerk/express@1.7.0 @arcjet/node@1.0.0-beta.8 @arcjet/inspect@1.0.0-beta.8
+
+
+/mobile
+1. npx create-expo-app@latest
+2. Git Bash terminal > rm -rf .Git 
+        // to ensure that both the backend and mobile projects could be managed under a single Git repository initialized at the root directory of the project, rather than having separate, nested repositories
+
+
+/root
+1. git init
