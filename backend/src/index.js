@@ -4,8 +4,8 @@ import { clerkMiddleware } from "@clerk/express";
 
 import userRoutes from "./routes/userRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-// import commentRoutes from "./routes/commentRoutes.js";
-// import notificationRoutes from "./routes/notificationRoute.js";
+ import commentRoutes from "./routes/commentRoutes.js";
+ import notificationRoutes from "./routes/notificationRoutes.js";
 
 import { ENV } from "./lib/env.js";
 import { connectDB } from "./lib/db.js";
@@ -23,8 +23,8 @@ app.get("/", (req, res) => res.send("Hello from server"));
 
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
-//app.use("/api/comments", commentRoutes);
-//app.use("/api/notifications", notificationRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // error handling middleware
 app.use((err, req, res, next) => {
