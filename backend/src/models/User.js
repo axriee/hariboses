@@ -29,10 +29,6 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: ""
         },
-        bannerImage: {
-            type: String,
-            default: "",
-        },
         // role determines if they are a student or an admin
         role: { 
             type: String, 
