@@ -3,6 +3,8 @@ import cors from 'cors';
 import { clerkMiddleware } from '@clerk/express';
 
 import userRoutes from './routes/userRoutes.js'; 
+import adminRoutes from './routes/adminRoutes.js';
+// import postRoutes from './routes/postRoutes.js';
 
 import { ENV } from './lib/env.js';
 import { connectDB } from './lib/db.js';
@@ -15,6 +17,8 @@ app.use(express.json());
 app.use(clerkMiddleware());    
 
 app.use("/api/users", userRoutes);
+app.use("/api/admin", adminRoutes);
+// app.use("/api/posts", postRoutes);
 
 
 app.get('/', (req, res) => {
