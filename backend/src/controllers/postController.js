@@ -1,121 +1,213 @@
 import asyncHandler from "express-async-handler";
 import Post from "../models/Post.js";
+import User from "../models/User.js";
+import { getAuth } from "@clerk/express";
+import cloudinary from "../lib/cloudinary.js";
 import Notification from "../models/Notification.js";
-import { v2 as cloudinary } from "cloudinary";
+import Comment from "../models/Comment.js";
 
-// 1. CREATE POST: Handles both Student Grievances and Admin Announcements
-export const createPost = asyncHandler(async (req, res) => {
-  const { title, content, image } = req.body;
-  const userId = req.user._id;
-  const userRole = req.user.role;
+// --- PUBLIC FUNCTIONS ---
 
-  if (!title || !content) {
-    return res.status(400).json({ error: "Title and content are required" });
-  }
-
-  // Automatic logic: Users create pending grievances, Admins create approved announcements
-  let postType = "grievance";
-  let postStatus = "pending";
-
-  if (userRole === "admin") {
-    postType = "announcement";
-    postStatus = "approved";
-  }
-
-  let imageUrl = "";
-  if (image) {
-    const uploadedResponse = await cloudinary.uploader.upload(image);
-    imageUrl = uploadedResponse.secure_url;
-  }
-
-  const newPost = new Post({
-    author: userId,
-    title,
-    content,
-    image: imageUrl,
-    type: postType,
-    status: postStatus,
-  });
-
-  await newPost.save();
-
-  // If student posts a grievance, notify all admins
-  if (postType === "grievance") {
-    const admins = await User.find({ role: "admin" });
-    const adminNotifications = admins.map(admin => ({
-      from: userId,
-      to: admin._id,
-      type: "new_grievance", // Ensure this is in your Notification enum
-      post: newPost._id,
-    }));
-    await Notification.insertMany(adminNotifications);
-  }
-
-  res.status(201).json(newPost);
-});
-
-// 2. GET APPROVED POSTS: For the main student feed
-export const getApprovedPosts = asyncHandler(async (req, res) => {
-  // Fetches both Announcements and Approved Grievances
+// @desc    Get all APPROVED posts for the public feed
+export const getPosts = asyncHandler(async (req, res) => {
   const posts = await Post.find({ status: "approved" })
     .sort({ createdAt: -1 })
-    .populate("author", "firstName lastName profilePicture");
-    
-  res.status(200).json(posts);
+    .populate("author", "username firstName lastName profilePicture")
+    .populate({
+      path: "comments",
+      // Sort comments so that the pinned admin reply always stays at the top
+      options: { sort: { isPinned: -1, createdAt: -1 } },
+      populate: {
+        path: "user",
+        select: "username firstName lastName profilePicture role",
+      },
+    });
+
+  res.status(200).json({ posts });
 });
 
-// 3. GET PENDING POSTS: (Admin Only) For the approval queue
+// @desc    Get a single post by ID
+export const getPost = asyncHandler(async (req, res) => {
+  const { postId } = req.params;
+  const post = await Post.findById(postId)
+    .populate("author", "username firstName lastName profilePicture")
+    .populate({
+      path: "comments",
+      options: { sort: { isPinned: -1, createdAt: -1 } },
+      populate: {
+        path: "user",
+        select: "username firstName lastName profilePicture role",
+      },
+    });
+
+  if (!post) return res.status(404).json({ error: "Post not found" });
+  res.status(200).json({ post });
+});
+
+// @desc    Get all posts by a specific user
+export const getUserPosts = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+  const user = await User.findOne({ username });
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const posts = await Post.find({ author: user._id })
+    .sort({ createdAt: -1 })
+    .populate("author", "username firstName lastName profilePicture");
+
+  res.status(200).json({ posts });
+});
+
+// @desc    Create a new post (starts as pending)
+export const createPost = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+  const { content } = req.body;
+  const imageFile = req.file;
+
+  if (!content && !imageFile) {
+    return res.status(400).json({ error: "Post must contain either text or image" });
+  }
+
+  const user = await User.findOne({ clerkId: userId });
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  let imageUrl = "";
+  if (imageFile) {
+    const base64Image = `data:${imageFile.mimetype};base64,${imageFile.buffer.toString("base64")}`;
+    const uploadResponse = await cloudinary.uploader.upload(base64Image, {
+      folder: "social_media_posts",
+    });
+    imageUrl = uploadResponse.secure_url;
+  }
+
+  const post = await Post.create({
+    author: user._id,
+    content: content || "",
+    image: imageUrl,
+    status: "pending", // New posts require admin approval
+  });
+
+  res.status(201).json({ post });
+});
+
+// @desc    Like/Unlike a post
+export const likePost = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+  const { postId } = req.params;
+
+  const user = await User.findOne({ clerkId: userId });
+  const post = await Post.findById(postId);
+
+  if (!user || !post) return res.status(404).json({ error: "User or post not found" });
+
+  const isLiked = post.likes.includes(user._id);
+
+  if (isLiked) {
+    await Post.findByIdAndUpdate(postId, { $pull: { likes: user._id } });
+  } else {
+    await Post.findByIdAndUpdate(postId, { $push: { likes: user._id } });
+    if (post.author.toString() !== user._id.toString()) {
+      await Notification.create({
+        from: user._id,
+        to: post.author,
+        type: "like",
+        post: postId,
+      });
+    }
+  }
+
+  res.status(200).json({ message: isLiked ? "Unliked" : "Liked" });
+});
+
+// --- ADMIN & MODERATION FUNCTIONS ---
+
+// @desc    Get PENDING posts (Admin only)
 export const getPendingPosts = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+  const user = await User.findOne({ clerkId: userId });
+
+  if (!user || user.role !== "admin") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
   const posts = await Post.find({ status: "pending" })
     .sort({ createdAt: -1 })
-    .populate("author", "firstName lastName email");
-    
-  res.status(200).json(posts);
+    .populate("author", "username firstName lastName profilePicture");
+
+  res.status(200).json({ posts });
 });
 
-// 4. APPROVE POST: (Admin Only) Moves grievance to public feed
+// @desc    Approve a pending post
 export const approvePost = asyncHandler(async (req, res) => {
-  const { id } = req.params;
+  const { userId } = getAuth(req);
+  const { postId } = req.params;
 
+  const user = await User.findOne({ clerkId: userId });
+  if (!user || user.role !== "admin") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
+  const post = await Post.findByIdAndUpdate(postId, { status: "approved" }, { new: true });
+  if (!post) return res.status(404).json({ error: "Post not found" });
+
+  res.status(200).json({ message: "Post approved", post });
+});
+
+// @desc    Admin replies to grievance: Creates a comment and pins it to the top
+export const replyGrievance = asyncHandler(async (req, res) => {
+  const { userId } = getAuth(req);
+  const { postId } = req.params;
+  const { replyText } = req.body;
+
+  const adminUser = await User.findOne({ clerkId: userId });
+  if (!adminUser || adminUser.role !== "admin") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+
+  if (!replyText) {
+    return res.status(400).json({ error: "Reply text is required" });
+  }
+
+  // 1. Create the admin's reply as a Pinned Comment
+  const adminComment = await Comment.create({
+    content: replyText,
+    user: adminUser._id,
+    post: postId,
+    isPinned: true, // Custom field to ensure it sorts to the top
+  });
+
+  // 2. Update post: Add comment ID, resolve grievance, and approve for public view
   const post = await Post.findByIdAndUpdate(
-    id,
-    { status: "approved" },
+    postId,
+    { 
+      $push: { comments: adminComment._id },
+      grievanceViewed: true,
+      status: "approved" 
+    },
     { new: true }
   );
 
   if (!post) return res.status(404).json({ error: "Post not found" });
 
-  // Notify the student that their post is now public
-  await Notification.create({
-    from: req.user._id,
-    to: post.author,
-    type: "post_approved",
-    post: post._id,
-  });
-
-  res.status(200).json({ message: "Post approved", post });
+  res.status(200).json({ message: "Admin response pinned to comments", post });
 });
 
-// 5. DELETE POST: Admin can delete anything, Student can delete own
+// @desc    Delete post (Owner or Admin)
 export const deletePost = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const post = await Post.findById(id);
+  const { userId } = getAuth(req);
+  const { postId } = req.params;
 
-  if (!post) return res.status(404).json({ error: "Post not found" });
+  const user = await User.findOne({ clerkId: userId });
+  const post = await Post.findById(postId);
 
-  const isAdmin = req.user.role === "admin";
-  const isOwner = post.author.toString() === req.user._id.toString();
+  if (!user || !post) return res.status(404).json({ error: "User or post not found" });
 
-  if (isAdmin || isOwner) {
-    // If there is a cloudinary image, delete it too
-    if (post.image) {
-      const imgId = post.image.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(imgId);
-    }
-    
-    await Post.findByIdAndDelete(id);
-    res.status(200).json({ message: "Post deleted successfully" });
-  } else {
-    res.status(403).json({ error: "Unauthorized" });
+  if (post.user.toString() !== user._id.toString() && user.role !== "admin") {
+    return res.status(403).json({ error: "Unauthorized" });
   }
+
+  // Deleting the post also cleans up all associated comments
+  await Comment.deleteMany({ post: postId });
+  await Post.findByIdAndDelete(postId);
+
+  res.status(200).json({ message: "Post and comments deleted successfully" });
 });
