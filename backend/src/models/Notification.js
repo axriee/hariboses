@@ -16,7 +16,7 @@ const notificationSchema = new mongoose.Schema(
       type: String,
       required: true,
       // ADDED: "admin_reply" to distinguish official responses
-      enum: ["like", "comment", "admin_reply"], 
+      enum: ["like", "comment", "admin_reply", "account_approved"], 
     },
     post: {
       type: mongoose.Schema.Types.ObjectId,
