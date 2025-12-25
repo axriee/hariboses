@@ -17,3 +17,15 @@ CODEBASE SETUP
 
 /backend
 1. npm i express-async-handler@1.2.0 cloudinary@2.0.0 multer@2.0.1
+
+FRONTEND SETUP
+/mobile
+1. npm run reset-project  //to clear the boilerplate example code that comes pre-installed with a new Expo project.
+2. y
+3. npx expo
+4. Go to TailwindCSS website and https://www.nativewind.dev/docs/getting-started/installation
+5. npm install nativewind react-native-reanimated@~3.17.4 react-native-safe-area-context@5.4.0
+6. npm install --dev tailwindcss@^3.4.17 prettier-plugin-tailwindcss@^0.5.11
+7. npx tailwindcss init
+8. Go to tailwind.config.js > copy-paste next step 
+9. My CSS file > CSS file: _layout.tsx
