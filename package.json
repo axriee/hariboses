@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@clerk/clerk-expo": "^2.19.14",
+    "expo-secure-store": "^15.0.8"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10"
+  }
+}
