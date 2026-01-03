@@ -2,6 +2,8 @@ import asyncHandler from "express-async-handler";
 import User from "../models/User.js";
 import Post from "../models/Post.js";
 import Notification from "../models/Notification.js";
+import nodemailer from "nodemailer";
+import { ENV } from "../lib/env.js";
 
 // 1. GET ALL PENDING USERS: For the Admin "Approval Queue" screen
 export const getPendingUsers = asyncHandler(async (req, res) => {
@@ -10,7 +12,7 @@ export const getPendingUsers = asyncHandler(async (req, res) => {
     res.status(200).json(pendingUsers);
 });
 
-// 2. APPROVE USER: Flip the isApproved switch
+// 2. APPROVE USER: Flip the isApproved switch and send email notification
 export const approveUser = asyncHandler(async (req, res) => {
     const { userId } = req.params;
 
@@ -29,7 +31,34 @@ export const approveUser = asyncHandler(async (req, res) => {
         type: "account_approved", // Ensure this is in your Notification enum
     });
 
-    res.status(200).json({ message: `User ${user.username} approved successfully`, user });
+    // Send email notification
+    try {
+        const transporter = nodemailer.createTransport({
+            service: "gmail",
+            auth: {
+                user: ENV.EMAIL_USER,
+                pass: ENV.EMAIL_PASSWORD,
+            },
+        });
+
+        await transporter.sendMail({
+            from: ENV.EMAIL_USER,
+            to: user.plmEmail,
+            subject: "Your Account Has Been Approved - Boses ng Iskolar",
+            html: `
+                <h2>Welcome to Boses ng Iskolar!</h2>
+                <p>Hi ${user.firstName},</p>
+                <p>Your account has been approved by an administrator. You can now sign in to the app and start using all features!</p>
+                <p>Thank you for being part of our community.</p>
+                <p>Best regards,<br><strong>Boses ng Iskolar Team</strong></p>
+            `,
+        });
+        console.log(`Approval email sent to ${user.plmEmail}`);
+    } catch (emailError) {
+        console.log("Email notification failed, but user was approved:", emailError.message);
+    }
+
+    res.status(200).json({ message: `User ${user.username} approved successfully and notification sent`, user });
 });
 
 // 3. DELETE USER: Admin can remove problematic accounts

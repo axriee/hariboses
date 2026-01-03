@@ -1,6 +1,9 @@
 import { useSSO, useSignIn } from "@clerk/clerk-expo";
 import { useState } from "react";
 import { Alert } from "react-native";
+import { useRouter } from "expo-router";
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
 
 // Google/Apple SSO (matches current index.tsx usage)
 export const useSocialAuth = () => {
@@ -30,6 +33,7 @@ export const useSocialAuth = () => {
 export const useEmailUsernameAuth = () => {
   const { signIn, setActive, isLoaded } = useSignIn();
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const signInWithCredentials = async (identifier: string, password: string) => {
     if (!isLoaded) return;
@@ -38,6 +42,38 @@ export const useEmailUsernameAuth = () => {
       const res = await signIn!.create({ identifier, password });
       if (res.createdSessionId) {
         await setActive!({ session: res.createdSessionId });
+        
+        // Check if user is approved before redirecting
+        try {
+          const approvalRes = await fetch(`${API_BASE_URL}/api/users/approval-status`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!approvalRes.ok) {
+            throw new Error("Failed to check approval status");
+          }
+
+          const { isApproved } = await approvalRes.json();
+
+          if (!isApproved) {
+            // Sign them out since they're not approved
+            Alert.alert(
+              "Account Pending Approval",
+              "Your account is awaiting admin approval. You'll receive an email once approved."
+            );
+            return;
+          }
+
+          // User is approved, redirect to home
+          router.replace("/");
+        } catch (approvalError) {
+          console.log("Approval check error:", approvalError);
+          // If approval check fails, still allow sign in but show warning
+          Alert.alert("Warning", "Could not verify account status. Please contact support.");
+        }
       }
       return res;
     } catch (err: any) {

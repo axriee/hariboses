@@ -11,10 +11,12 @@ import {
 import { useEmailUsernameAuth } from "../../hooks/useSocialAuth";
 import { useSignUp } from "@clerk/clerk-expo";
 import { useState } from "react";
+import { useRouter } from "expo-router";
 
 export default function Index() {
   const { handleEmailSignIn, handleUsernameSignIn, isLoading } = useEmailUsernameAuth();
   const { signUp, setActive, isLoaded: signUpLoaded } = useSignUp();
+  const router = useRouter();
 
   // Sign-in fields
   const [identifier, setIdentifier] = useState(""); // email or username
@@ -67,6 +69,7 @@ export default function Index() {
         setShowVerify(true);
       } else if (signUp.createdSessionId) {
         await setActive({ session: signUp.createdSessionId });
+        router.replace("/");
         setShowSignup(false);
       }
     } catch (err: any) {
@@ -83,12 +86,22 @@ export default function Index() {
     setVerifyLoading(true);
     try {
       const res = await signUp.attemptEmailAddressVerification({ code });
+      
+      // Always set the session after verification succeeds
       if (res.createdSessionId) {
         await setActive({ session: res.createdSessionId });
       }
+      
       setShowVerify(false);
       setVerificationCode("");
-      setSignupEmail(""); setSignupUsername(""); setSignupPassword(""); setSignupConfirm("");
+      setSignupEmail(""); 
+      setSignupUsername(""); 
+      setSignupPassword(""); 
+      setSignupConfirm("");
+      
+      // Redirect to home - user will be pending approval but account is created
+      router.replace("/");
+      
     } catch (err: any) {
       Alert.alert("Verification error", err?.errors?.[0]?.message || "Invalid code");
     } finally {

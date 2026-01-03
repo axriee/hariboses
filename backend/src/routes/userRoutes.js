@@ -1,6 +1,6 @@
 import express from 'express';
 import upload from '../middleware/uploadMiddleware.js';
-import { getUserProfile, updateProfile, syncUser, getCurrentUser  } from '../controllers/userController.js';
+import { getUserProfile, updateProfile, syncUser, getCurrentUser, checkUserApprovalStatus  } from '../controllers/userController.js';
 import { createPost, getPosts, getPost, getUserPosts, likePost, deletePost } from '../controllers/postController.js';  
 import { protectRoute } from '../middleware/authMiddleware.js';
 
@@ -11,6 +11,7 @@ router.get("/profile/:username", protectRoute, getUserProfile);
 router.post("/sync", protectRoute, syncUser);
 router.put("/profile", protectRoute, updateProfile);
 router.get("/me", protectRoute, getCurrentUser);
+router.get("/approval-status", protectRoute, checkUserApprovalStatus);
 
 router.post('/create-post', protectRoute, upload.single('image'), createPost);
 // router.post("/create-post", protectRoute, createPost);
