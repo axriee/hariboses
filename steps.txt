@@ -18,7 +18,6 @@ CODEBASE SETUP
 /backend
 1. npm i express-async-handler@1.2.0 cloudinary@2.0.0 multer@2.0.1
 
-
 FRONTEND SETUP
 /mobile
 1. npm run reset-project  //to clear the boilerplate example code that comes pre-installed with a new Expo project.
