@@ -2,14 +2,16 @@ import { SignedIn, SignedOut, useUser } from '@clerk/clerk-expo'
 import { useRouter } from 'expo-router'
 import { Text, View, TouchableOpacity } from 'react-native'
 import SignOutButton from '../components/SignOutButton'
+import { useUserSync } from '@/hooks/useUserSync'
 
 export default function HomeScreen() {
+  useUserSync()
   const { user } = useUser()
   const router = useRouter()
   
   return (
       
-    <View className="flex-1 justify-center items-center items-center px-6 mb-6" >
+    <View className="flex-1 justify-center items-center px-6 mb-6" >
       <SignedIn>
         <Text
           className="text-blue-900 font-semibold text-2xl leading-7 tracking-tight"
