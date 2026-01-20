@@ -39,8 +39,8 @@ export const syncUser = asyncHandler(async (req, res) => {
     plmEmail: clerkUser.emailAddresses[0].emailAddress,
     firstName: clerkUser.firstName || "",
     lastName: clerkUser.lastName || "",
-    username: clerkUser.emailAddresses[0].emailAddress.split("@")[0],
-    profilePicture: clerkUser.imageUrl || "",
+    username: clerkUser.username || clerkUser.emailAddresses[0].emailAddress.split("@")[0],
+    profilePicture: "",  // Leave empty, don't use Clerk's auto-generated image
   };
 
   const user = await User.create(userData);
