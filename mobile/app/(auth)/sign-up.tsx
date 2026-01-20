@@ -49,7 +49,7 @@ export default function SignUpScreen() {
 
       if (signUpAttempt.status === 'complete') {
         await setActive({ session: signUpAttempt.createdSessionId })
-        router.replace('/')
+        router.replace('/(tabs)')
       } else {
         console.error(JSON.stringify(signUpAttempt, null, 2))
       }
