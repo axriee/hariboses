@@ -19,7 +19,7 @@ app.use(express.json());
 app.use(clerkMiddleware({
   secretKey: ENV.CLERK_SECRET_KEY,
 }));
-app.use(arcjetMiddleware);
+// app.use(arcjetMiddleware);
 
 app.get("/", (req, res) => res.send("Hello from server"));
 

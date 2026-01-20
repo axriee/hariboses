@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/clerk-expo";
 import { useApiClient, userApi } from "../utils/api";
 
 export const useUserSync = () => {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const api = useApiClient();
 
   const syncUserMutation = useMutation({
@@ -13,13 +13,12 @@ export const useUserSync = () => {
     onError: (error) => console.error("User sync failed:", error),
   });
 
-  // auto-sync user when signed in
   useEffect(() => {
-    // if user is signed in and user is not synced yet, sync user
-    if (isSignedIn && !syncUserMutation.data) {
+    // Only sync when Clerk is fully loaded and user is signed in
+    if (isLoaded && isSignedIn && !syncUserMutation.data && !syncUserMutation.isPending) {
       syncUserMutation.mutate();
     }
-  }, [isSignedIn, syncUserMutation.data, syncUserMutation.mutate]);
+  }, [isLoaded, isSignedIn]);
 
   return null;
 };
